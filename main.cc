@@ -8,38 +8,51 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 
     sgl::Graph<std::string, sgl::AdjacencyList> graph;
 
-    // [[maybe_unused]] auto id1 = graph.add_vertex(251);
-    // [[maybe_unused]] auto id2 = graph.add_vertex(50);
-    // [[maybe_unused]] auto id3 = graph.add_vertex(100);
-    // [[maybe_unused]] auto id4 = graph.add_vertex(25);
-    // [[maybe_unused]] auto id5 = graph.add_vertex(1152);
-    // [[maybe_unused]] auto id6 = graph.add_vertex(1);
-    // [[maybe_unused]] auto id7 = graph.add_vertex(2);
+    [[maybe_unused]] auto f = graph.add_vertex("F");
+    [[maybe_unused]] auto b = graph.add_vertex("B");
+    [[maybe_unused]] auto a = graph.add_vertex("A");
+    [[maybe_unused]] auto d = graph.add_vertex("D");
+    [[maybe_unused]] auto c = graph.add_vertex("C");
+    [[maybe_unused]] auto e = graph.add_vertex("E");
+    [[maybe_unused]] auto g = graph.add_vertex("G");
+    [[maybe_unused]] auto i = graph.add_vertex("I");
+    [[maybe_unused]] auto h = graph.add_vertex("H");
 
-    [[maybe_unused]] auto id1 = graph.add_vertex("251");
-    [[maybe_unused]] auto id2 = graph.add_vertex("50");
-    [[maybe_unused]] auto id3 = graph.add_vertex("100");
-    [[maybe_unused]] auto id4 = graph.add_vertex("25");
-    [[maybe_unused]] auto id5 = graph.add_vertex("1152");
-    [[maybe_unused]] auto id6 = graph.add_vertex("1");
-    [[maybe_unused]] auto id7 = graph.add_vertex("2");
+    graph.add_edge(f, b);
+    graph.add_edge(b, a);
+    graph.add_edge(b, d);
+    graph.add_edge(d, c);
+    graph.add_edge(d, e);
+    graph.add_edge(f, g);
+    graph.add_edge(g, i);
+    graph.add_edge(i, h);
 
-    sgl::AdjacencyList<std::string> adj_list;
-    adj_list.add_vertex("251");
-    adj_list.add_vertex("50");
+    std::cout << "Breadth First Search: " << std::endl;
+    graph.traverse<sgl::BFS>(sgl::add<std::string>, " node");
 
-    sgl::Vertex<std::string> vertex{"251"};
+    std::cout << std::endl << "Depth First Search: " << std::endl;
+    graph.traverse<sgl::DFS>();
 
-    std::cout << sgl::VertexFormat::LONG << graph << std::endl;
-    std::cout << sgl::VertexFormat::LONG << adj_list << std::endl;
-    std::cout << sgl::VertexFormat::LONG << vertex << std::endl;
+    std::cout << std::endl << "Removed vertex, DFS: " << std::endl;
+    graph.remove_vertex(g);
+    graph.traverse<sgl::DFS,true>();
 
-    graph.print();
+    std::cout << std::endl << "Removed edge, DFS: " << std::endl;
+    g = graph.add_vertex("G node");
+    graph.add_edge(f, g);
+    graph.add_edge(g, i);
+    graph.remove_edge(f, b);
+    graph.traverse<sgl::DFS>();
 
-    adj_list.traverse<sgl::BFS, true>(sgl::add<std::string>, " added");
-    graph.traverse<sgl::DFS, true>(sgl::add<std::string>, "5");
-
-    std::cout << sgl::VertexFormat::LONG << graph << std::endl;
+    for(auto it = graph.begin(); it != graph.end(); ++it)
+    {
+        if(it->get_data() == "A node")
+        {
+            std::cout << "Found A node" << std::endl;
+            it->get_data() = "Changed";
+            std::cout << *it << std::endl;
+        }
+    }
 
     return EXIT_SUCCESS;
 }
