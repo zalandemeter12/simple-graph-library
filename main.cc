@@ -31,11 +31,14 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
     graph.traverse<sgl::BFS>(sgl::add<std::string>, " node");
 
     std::cout << std::endl << "Depth First Search: " << std::endl;
-    graph.traverse<sgl::DFS>();
+    graph.traverse<sgl::DFS>(f);
+
+    std::cout << std::endl << "Depth First Search: " << std::endl;
+    graph.traverse<sgl::DFS>(a);
 
     std::cout << std::endl << "Removed vertex, DFS: " << std::endl;
     graph.remove_vertex(g);
-    graph.traverse<sgl::DFS,true>();
+    graph.traverse<sgl::DFS, sgl::VisitPolicy::ALL>();
 
     std::cout << std::endl << "Removed edge, DFS: " << std::endl;
     g = graph.add_vertex("G node");
@@ -49,10 +52,40 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
         if(it->get_data() == "A node")
         {
             std::cout << "Found A node" << std::endl;
-            it->get_data() = "Changed";
-            std::cout << *it << std::endl;
         }
     }
+
+    sgl::AdjacencyList<float> adj_list;
+    adj_list.add_vertex(1.0f);
+    adj_list.add_vertex(2.0f);
+    adj_list.add_vertex(3.0f);
+    adj_list.add_vertex(4.0f);
+
+    [[maybe_unused]] auto ptr = adj_list.instance();
+    ptr->add_vertex(5.0f);
+
+    std::cout << sgl::VertexFormat::SHORTEST << adj_list << std::endl;
+
+    std::vector<sgl::uuid> to_remove;
+    graph.traverse<sgl::DFS>([&to_remove](auto& v) 
+    { 
+        std::cout << v << ": " << v.size() << std::endl;
+        if(v.size() > 2)
+        {
+            to_remove.push_back(v.get_id());
+        }
+    });
+
+    for(auto& uuid : to_remove)
+    {
+        graph.remove_vertex(uuid);
+    }
+
+    graph.traverse<sgl::BFS, sgl::VisitPolicy::ALL>(sgl::print<std::string, sgl::VertexFormat::SHORT>);
+
+    graph.remove_if(sgl::equal_to<std::string>, "A node");
+
+    std::cout << graph << std::endl;
 
     return EXIT_SUCCESS;
 }
