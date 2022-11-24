@@ -988,6 +988,10 @@ namespace sgl
     {
       return m_data_structure.add_vertex(std::move(vertex));
     }
+    uuid add_vertex(VERTEX_TYPE vertex)
+    {
+      return m_data_structure.add_vertex(std::move(vertex));
+    }
     uuid add_vertex(const DATA_TYPE &&data)
     {
       return m_data_structure.add_vertex(std::move(data));
@@ -1213,152 +1217,37 @@ namespace sgl
     }
   };
 
-  class Point2D
-  {
-  public:
-    Point2D() = default;
-    Point2D(const float x, const float y) : m_x{x}, m_y{y} {}
-    Point2D(const float x, const float y, const std::any &payload)
-        : m_x{x}, m_y{y}, m_payload{payload} {}
-    ~Point2D() = default;
+  auto add = std::bind([](auto &vertex, auto &&a)
+                       { vertex.get_data() = vertex.get_data() + a; },
+                       std::placeholders::_1, std::placeholders::_2);
 
-    float distanceFrom(Point2D p)
-    {
-      return sqrt(pow((abs(m_x - p.m_x)), 2) + pow(abs(m_y - p.m_y), 2));
-    }
-    void set_payload(const std::any &payload) { m_payload = payload; }
+  auto increment = std::bind([](auto &vertex)
+                             { vertex.get_data() = vertex.get_data() + 1; },
+                             std::placeholders::_1);
 
-  private:
-    float m_x;
-    float m_y;
-    std::any m_payload;
-  };
+  auto decrement = std::bind([](auto &vertex)
+                             { vertex.get_data() = vertex.get_data() - 1; },
+                             std::placeholders::_1);
 
-  // travelling salesman problem solver with simulated annealing
-  template <typename DATA_STRUCTURE>
-  class TSP
-  {
-    using VERTEX_TYPE = typename DATA_STRUCTURE::VERTEX_TYPE;
+  auto multiply = std::bind([](auto &vertex, auto &&a)
+                            { vertex.get_data() = vertex.get_data() * a; },
+                            std::placeholders::_1, std::placeholders::_2);
 
-  public:
-    TSP() = default;
-    ~TSP() = default;
+  auto print = std::bind([](auto &vertex, const VertexFormat &format = VertexFormat::SHORTEST, std::ostream &os = std::cout)
+                         { os << format << vertex << std::endl; },
+                         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
-    void solve(float T0, int nsteps)
-    {
-      auto swapping = [this](unsigned int idx1, unsigned int idx2)
-      {
-        std::vector<Point2D> tmp;
-        for (unsigned int i = idx1 + 1; i < idx2 + 1; ++i)
-          tmp.push_back(nodes.at(i));
-        for (unsigned int i = idx2; i > idx1; --i)
-          nodes.at(i) = tmp.at(-i + idx2);
-      };
+  auto less_than = std::bind([](auto &vertex, auto &&a)
+                             { return vertex.get_data() < a; },
+                             std::placeholders::_1, std::placeholders::_2);
 
-      auto E = [this]()
-      {
-        float dist_trav = 0;
-        for (unsigned int i = 0; i < nodes.size() - 1; ++i)
-          dist_trav += nodes.at(i).distanceFrom(nodes.at(i + 1));
-        dist_trav += nodes.at(nodes.size() - 1).distanceFrom(nodes.at(0));
-        return dist_trav;
-      };
+  auto greater_than = std::bind([](auto &vertex, auto &&a)
+                                { return vertex.get_data() > a; },
+                                std::placeholders::_1, std::placeholders::_2);
 
-      if (nodes.size() == 0)
-        return;
-
-      srand(time(NULL));
-
-      float oldE = E();
-
-      std::vector<float> array;
-      for (int i = 0; i < nsteps; ++i)
-        array.push_back(T0 - (T0 / nsteps * i));
-
-      for (float T : array)
-      {
-        unsigned int idx1 = rand() % nodes.size() - 2;
-        unsigned int idx2 = rand() % (nodes.size() - (idx1 + 2)) +
-                            idx1 + 2;
-        swapping(idx1, idx2);
-        float newE = E();
-        if (newE > oldE)
-        {
-          if (static_cast<float>(rand()) / (static_cast<float>(RAND_MAX)) > exp(-(newE - oldE) / T))
-          {
-            swapping(idx1, idx2);
-            newE = oldE;
-          }
-        }
-        oldE = newE;
-      }
-    }
-
-  private:
-    std::vector<Point2D> nodes;
-  };
-
-  template <typename DATA_TYPE, typename PARAM_TYPE = DATA_TYPE>
-  auto add = std::bind(
-      [](Vertex<DATA_TYPE> &vertex, const PARAM_TYPE &&a)
-      {
-        vertex.get_data() = vertex.get_data() + a;
-      },
-      std::placeholders::_1, std::placeholders::_2);
-
-  template <typename DATA_TYPE>
-  auto increment = std::bind(
-      [](Vertex<DATA_TYPE> &vertex)
-      {
-        vertex.get_data() = vertex.get_data() + 1;
-      },
-      std::placeholders::_1);
-
-  template <typename DATA_TYPE>
-  auto decrement = std::bind(
-      [](Vertex<DATA_TYPE> &vertex)
-      {
-        vertex.get_data() = vertex.get_data() - 1;
-      },
-      std::placeholders::_1);
-
-  template <typename DATA_TYPE, typename PARAM_TYPE = DATA_TYPE>
-  auto multiply = std::bind(
-      [](Vertex<DATA_TYPE> &vertex, const PARAM_TYPE &&a)
-      {
-        vertex.get_data() = vertex.get_data() * a;
-      },
-      std::placeholders::_1, std::placeholders::_2);
-
-  template <typename DATA_TYPE, VertexFormat format = VertexFormat::SHORTEST,
-            std::ostream &os = std::cout>
-  auto print = std::bind(
-      [](const Vertex<DATA_TYPE> &vertex)
-      {
-        os << format << vertex << std::endl;
-      },
-      std::placeholders::_1);
-
-  template <typename DATA_TYPE, typename PARAM_TYPE = DATA_TYPE>
-  auto less_than =
-      std::bind([](const Vertex<DATA_TYPE> &vertex,
-                   const PARAM_TYPE &&a)
-                { return vertex.get_data() < a; },
-                std::placeholders::_1, std::placeholders::_2);
-
-  template <typename DATA_TYPE, typename PARAM_TYPE = DATA_TYPE>
-  auto greater_than =
-      std::bind([](const Vertex<DATA_TYPE> &vertex,
-                   const PARAM_TYPE &&a)
-                { return vertex.get_data() > a; },
-                std::placeholders::_1, std::placeholders::_2);
-
-  template <typename DATA_TYPE, typename PARAM_TYPE = DATA_TYPE>
-  auto equal_to =
-      std::bind([](const Vertex<DATA_TYPE> &vertex,
-                   const PARAM_TYPE &&a)
-                { return vertex.get_data() == a; },
-                std::placeholders::_1, std::placeholders::_2);
+  auto equal_to = std::bind([](auto &vertex, auto &&a)
+                            { return vertex.get_data() == a; },
+                            std::placeholders::_1, std::placeholders::_2);
 
 } // namespace sgl
 

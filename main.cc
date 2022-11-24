@@ -16,89 +16,97 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 
   sgl::version();
 
-  sgl::Graph<std::string, sgl::AdjacencyList> graph;
+  sgl::Graph<std::string, sgl::AdjacencyList> graph1;
 
-  [[maybe_unused]] auto f = graph.add_vertex("F");
-  [[maybe_unused]] auto b = graph.add_vertex("B");
-  [[maybe_unused]] auto a = graph.add_vertex("A");
-  [[maybe_unused]] auto d = graph.add_vertex("D");
-  [[maybe_unused]] auto c = graph.add_vertex("C");
-  [[maybe_unused]] auto e = graph.add_vertex("E");
-  [[maybe_unused]] auto g = graph.add_vertex("G");
-  [[maybe_unused]] auto i = graph.add_vertex("I");
-  [[maybe_unused]] auto h = graph.add_vertex("H");
+  auto f = graph1.add_vertex("F");
+  auto b = graph1.add_vertex("B");
+  auto a = graph1.add_vertex("A");
+  auto d = graph1.add_vertex("D");
+  auto c = graph1.add_vertex("C");
+  auto e = graph1.add_vertex("E");
+  auto g = graph1.add_vertex("G");
+  auto i = graph1.add_vertex("I");
+  auto h = graph1.add_vertex("H");
 
-  graph.add_edge(f, b);
-  graph.add_edge(b, a);
-  graph.add_edge(b, d);
-  graph.add_edge(d, c);
-  graph.add_edge(d, e);
-  graph.add_edge(f, g);
-  graph.add_edge(g, i);
-  graph.add_edge(i, h);
+  graph1.add_edge(f, b);
+  graph1.add_edge(b, a);
+  graph1.add_edge(b, d);
+  graph1.add_edge(d, c);
+  graph1.add_edge(d, e);
+  graph1.add_edge(f, g);
+  graph1.add_edge(g, i);
+  graph1.add_edge(i, h);
 
-  std::cout << "Breadth First Search: " << std::endl;
-  graph.traverse<sgl::BFS>(f);
+  sgl::Graph<std::string, sgl::AdjacencyMatrix> graph2;
 
-  graph.traverse<sgl::BFS>(sgl::add<std::string>, " node");
+  for (auto v : graph1)
+    graph2.add_vertex(v);
 
-  std::cout << std::endl
-            << "Depth First Search: " << std::endl;
-  graph.traverse<sgl::DFS>(f);
+  // vertex iterator
+  for (auto v : graph1)
+    // neighbor iterator
+    for (auto it = graph1.begin(v.get_id()); it != graph1.end(v.get_id()); ++it)
+      graph2.add_edge(v.get_id(), it->get_id());
 
-  std::cout << std::endl
-            << "Depth First Search: " << std::endl;
-  graph.traverse<sgl::DFS>(a);
+  std::cout << "graph1: " << std::endl
+            << graph1 << std::endl;
+  std::cout << "graph2: " << std::endl
+            << graph2 << std::endl;
 
-  std::cout << std::endl
-            << "Removed vertex, DFS: " << std::endl;
-  graph.remove_vertex(g);
-  graph.traverse<sgl::DFS, sgl::VisitPolicy::ALL>();
+  std::cout << "graph1 BFS from f: " << std::endl;
+  graph1.traverse(f);
+  std::cout << std::endl;
 
-  std::cout << std::endl
-            << "Removed edge, DFS: " << std::endl;
-  g = graph.add_vertex("G node");
-  graph.add_edge(f, g);
-  graph.add_edge(g, i);
-  graph.remove_edge(f, b);
-  graph.traverse<sgl::DFS>();
+  std::cout << "graph2 BFS: " << std::endl;
+  graph2.traverse();
+  std::cout << std::endl;
 
-  for (auto it = graph.begin(); it != graph.end(); ++it)
-  {
-    if (it->get_data() == "A node")
-    {
-      std::cout << "Found A node" << std::endl;
-    }
-  }
+  std::cout << "graph1 DFS from d: " << std::endl;
+  graph1.traverse<sgl::DFS>(d);
+  std::cout << std::endl;
 
-  sgl::AdjacencyList<float> adj_list;
-  adj_list.add_vertex(1.0f);
-  adj_list.add_vertex(2.0f);
-  adj_list.add_vertex(3.0f);
-  adj_list.add_vertex(4.0f);
+  std::cout << "graph2 DFS with lambda: " << std::endl;
+  graph2.traverse<sgl::DFS>([](auto &v)
+                            { std::cout << "num of adjacent: " << v.size() << std::endl; });
+  std::cout << std::endl;
 
-  std::cout << sgl::VertexFormat::SHORTEST << adj_list << std::endl;
+  std::cout << "graph1 DFS with predefined lambda: " << std::endl;
+  graph1.traverse<sgl::DFS>(sgl::add, " X");
+  std::cout << sgl::VertexFormat::SHORT << graph1 << std::endl;
 
-  std::vector<sgl::uuid> to_remove;
-  graph.traverse<sgl::DFS>([&to_remove](auto &v)
-                           {
-    std::cout << v << ": " << v.size() << std::endl;
-    if (v.size() > 2) {
-      to_remove.push_back(v.get_id());
-    } });
+  std::cout << "graph2 DFS removed d: " << std::endl;
+  graph2.remove_vertex(d);
+  graph2.traverse<sgl::DFS>();
+  std::cout << std::endl;
 
-  for (auto &uuid : to_remove)
-  {
-    graph.remove_vertex(uuid);
-  }
+  std::cout << "graph2 DFS visit all policy: " << std::endl;
+  graph2.traverse<sgl::DFS, sgl::VisitPolicy::ALL>();
+  std::cout << std::endl;
 
-  graph.traverse<sgl::BFS, sgl::VisitPolicy::ALL>(
-      sgl::print<std::string, sgl::VertexFormat::SHORT>);
+  std::cout << "graph2 BFS removed a-b edge: " << std::endl;
+  graph2.remove_edge(a, b);
+  graph2.traverse<sgl::BFS>(b);
+  std::cout << std::endl;
 
-  graph.remove_if(sgl::equal_to<std::string>, "A node");
+  std::cout << "graph2 BFS remove if with predefined lambda: " << std::endl;
+  graph2.remove_if(sgl::greater_than, "G");
+  graph2.traverse<sgl::BFS>(b);
+  std::cout << std::endl;
 
-  std::cout << graph << std::endl;
+  std::cout << "graph2 BFS remove if with lambda: " << std::endl;
+  graph2.remove_if([](auto &v)
+                   { return v.get_data() == "G"; });
+  graph2.traverse<sgl::BFS>(b);
+  std::cout << std::endl;
 
-  graph.traverse<sgl::DFS>(sgl::add<std::string>, "c");
+  std::cout << "graph1 DFS print with long format: " << std::endl;
+  graph1.traverse<sgl::DFS>(sgl::print, sgl::VertexFormat::LONG, std::cout);
+  std::cout << std::endl;
+
+  graph2.print();
+  std::cout << std::endl;
+
+
+
   return EXIT_SUCCESS;
 }
