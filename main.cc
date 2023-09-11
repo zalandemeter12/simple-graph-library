@@ -12,7 +12,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
         A     D     I
             /   \     \
             C     E     H
-*/
+  */
 
   sgl::version();
 
@@ -105,8 +105,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 
   graph2.print();
   std::cout << std::endl;
-
-
 
   return EXIT_SUCCESS;
 }
