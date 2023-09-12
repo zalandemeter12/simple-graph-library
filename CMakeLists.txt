@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.0...3.27.0)
-project(simple-graph-library VERSION 0.1.0)
+project(simple-graph-library VERSION 0.2.0)
 
 include(CTest)
 enable_testing()

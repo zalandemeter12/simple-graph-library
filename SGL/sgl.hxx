@@ -15,14 +15,67 @@
 
 namespace sgl
 {
+    //////////////////////////////////////////////////////////////////////////////
+    //
+    //       FORWARD DECLARATIONS
+    //
+
+    class uuid;
+
+    template <typename DATA_TYPE>
+    class Vertex;
+
+    class VertexPrinter;
+
+    template <typename DATA_TYPE>
+    class DataStructureBase;
+
+    template <typename DATA_TYPE>
+    class AdjacencyList;
+
+    template <typename DATA_TYPE>
+    class AdjacencyMatrix;
+
+    template <typename DATA_TYPE, template <typename> typename DATA_STRUCTURE>
+    class Graph;
+
+    template <typename DATA_STRUCTURE>
+    class BFS;
+
+    template <typename DATA_STRUCTURE>
+    class DFS;
+
+    //
+    //       END OF FORWARD DECLARATIONS
+    //
+    //////////////////////////////////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////
+    //
+    //       TYPE DEFINITIONS
+    //
+
     void version()
     {
         std::cout << R"(
 │ ╔═╗╔═╗╦      Simple Graph Library │
 │ ╚═╗║ ╦║        Apache License 2.0 │
-│ ╚═╝╚═╝╩═╝           version 0.1.1 │
-        )" << std::endl;
+│ ╚═╝╚═╝╩═╝           version 0.2.0 │
+    )" << std::endl;
     }
+
+    enum VertexFormat
+    {
+        SHORTEST,
+        SHORT,
+        LONG
+    };
+
+    enum VisitPolicy
+    {
+        RELATED,
+        ALL
+    };
 
     class uuid
     {
@@ -45,10 +98,6 @@ namespace sgl
             m_uuid = ss.str();
         }
 
-    private:
-        std::string m_uuid;
-
-    public:
         operator std::string() const { return m_uuid; }
 
         auto operator<=>(const uuid &other) const
@@ -65,40 +114,10 @@ namespace sgl
         {
             return os << uuid.m_uuid;
         }
+
+    private:
+        std::string m_uuid;
     };
-
-    template <typename DATA_TYPE>
-    class Vertex;
-
-    enum VertexFormat
-    {
-        SHORTEST,
-        SHORT,
-        LONG
-    };
-
-    class VertexPrinter;
-
-    template <typename DATA_TYPE>
-    class AdjacencyList;
-
-    template <typename DATA_TYPE, template <typename> typename DATA_STRUCTURE>
-    class Graph;
-
-    enum VisitPolicy
-    {
-        RELATED,
-        ALL
-    };
-
-    template <typename DATA_STRUCTURE>
-    class BFS;
-
-    template <typename DATA_STRUCTURE>
-    class DFS;
-
-    template <typename DATA_TYPE>
-    class DataStructureBase;
 
     template <typename DATA_TYPE>
     class Vertex
@@ -107,11 +126,15 @@ namespace sgl
 
         friend class VertexPrinter;
         friend class DataStructureBase<DATA_TYPE>;
+        friend class AdjacencyList<DATA_TYPE>;
+        friend class AdjacencyMatrix<DATA_TYPE>;
 
     public:
-        Vertex(const DATA_TYPE &&data) : m_uuid{}, m_data{data} {}
-        Vertex(const DATA_TYPE &&data, DataStructureBase<DATA_TYPE> *m_data_structure)
+        Vertex(DATA_TYPE &&data) : m_uuid{}, m_data{data}, m_data_structure{} {}
+        Vertex(DATA_TYPE &&data, std::shared_ptr<DataStructureBase<DATA_TYPE>> m_data_structure)
             : m_uuid{}, m_data{data}, m_data_structure{m_data_structure} {}
+        Vertex(const Vertex &other) = delete;
+        Vertex(Vertex &&other) : m_uuid{std::move(other.m_uuid)}, m_data{std::move(other.m_data)}, m_data_structure{std::move(other.m_data_structure)} {}
 
         ~Vertex() = default;
 
@@ -129,7 +152,9 @@ namespace sgl
         void remove()
         {
             if (m_data_structure == nullptr)
-                throw std::runtime_error("SGL: Vertex is not part of a graph");
+            {
+                throw std::runtime_error("[void sgl::Vertex::remove()] Vertex is not part of a graph");
+            }
 
             m_data_structure->remove_vertex(m_uuid);
             m_data_structure = nullptr;
@@ -138,7 +163,7 @@ namespace sgl
         void remove_edge(const uuid &id)
         {
             if (m_data_structure == nullptr)
-                throw std::runtime_error("SGL: Vertex is not part of a graph");
+                throw std::runtime_error("[void sgl::Vertex::remove_edge(const uuid &id)] Vertex is not part of a graph");
 
             m_data_structure->remove_edge(m_uuid, id);
         }
@@ -150,14 +175,14 @@ namespace sgl
         }
 
     private:
-        void add_data_structure(DataStructureBase<DATA_TYPE> *data_structure)
+        void add_data_structure(const std::shared_ptr<DataStructureBase<DATA_TYPE>> &data_structure)
         {
             m_data_structure = data_structure;
         }
 
         const uuid m_uuid;
         DATA_TYPE m_data;
-        DataStructureBase<DATA_TYPE> *m_data_structure = nullptr;
+        std::shared_ptr<DataStructureBase<DATA_TYPE>> m_data_structure;
     };
 
     class VertexPrinter
@@ -192,30 +217,49 @@ namespace sgl
         }
 
         template <typename DATA_TYPE, template <typename> typename DATA_STRUCTURE>
-        std::ostream &
-        operator<<(const Graph<DATA_TYPE, DATA_STRUCTURE> &graph) const
+        std::ostream &operator<<(const Graph<DATA_TYPE, DATA_STRUCTURE> &graph) const
         {
             if (m_format == VertexFormat::SHORTEST)
             {
-                VertexPrinter{m_os, VertexFormat::SHORTEST} << graph.m_data_structure;
+                VertexPrinter{m_os, VertexFormat::SHORTEST} << *(graph.m_data_structure);
             }
             else if (m_format == VertexFormat::SHORT)
             {
-                VertexPrinter{m_os, VertexFormat::SHORT} << graph.m_data_structure;
+                VertexPrinter{m_os, VertexFormat::SHORT} << *(graph.m_data_structure);
             }
             else if (m_format == VertexFormat::LONG)
             {
-                VertexPrinter{m_os, VertexFormat::LONG} << graph.m_data_structure;
+                VertexPrinter{m_os, VertexFormat::LONG} << *(graph.m_data_structure);
             }
 
             return m_os;
         }
 
         template <typename DATA_TYPE>
-        std::ostream &
-        operator<<(const AdjacencyList<DATA_TYPE> &adjacency_list) const
+        std::ostream &operator<<(const AdjacencyList<DATA_TYPE> &adjacency_list) const
         {
             for (auto it = adjacency_list.cbegin(); it != adjacency_list.cend(); ++it)
+            {
+                if (m_format == VertexFormat::SHORTEST)
+                {
+                    VertexPrinter{m_os, VertexFormat::SHORTEST} << *it << std::endl;
+                }
+                else if (m_format == VertexFormat::SHORT)
+                {
+                    VertexPrinter{m_os, VertexFormat::SHORT} << *it << std::endl;
+                }
+                else if (m_format == VertexFormat::LONG)
+                {
+                    VertexPrinter{m_os, VertexFormat::LONG} << *it << std::endl;
+                }
+            }
+            return m_os;
+        }
+
+        template <typename DATA_TYPE>
+        std::ostream &operator<<(const AdjacencyMatrix<DATA_TYPE> &adjacency_matrix) const
+        {
+            for (auto it = adjacency_matrix.cbegin(); it != adjacency_matrix.cend(); ++it)
             {
                 if (m_format == VertexFormat::SHORTEST)
                 {
@@ -254,8 +298,8 @@ namespace sgl
         DataStructureBase() = default;
         virtual ~DataStructureBase() = default;
 
-        virtual uuid add_vertex(VERTEX_TYPE &&vertex) = 0;
-        virtual uuid add_vertex(const DATA_TYPE &&data) = 0;
+        virtual const uuid &add_vertex(VERTEX_TYPE &&vertex) = 0;
+        virtual const uuid &add_vertex(DATA_TYPE &&data) = 0;
         virtual void add_edge(const uuid &vertex1, const uuid &vertex2) = 0;
 
         virtual void remove_vertex(const uuid &vertex) = 0;
@@ -271,12 +315,6 @@ namespace sgl
         virtual std::ostream &print(std::ostream &os = std::cout) const = 0;
 
     protected:
-        virtual DataStructureBase<DATA_TYPE> *instance() { return this; }
-        void add_data_structure(VERTEX_TYPE &vertex)
-        {
-            vertex.add_data_structure(instance());
-        }
-
         class const_iterator_impl
         {
         public:
@@ -349,15 +387,19 @@ namespace sgl
         virtual iterator begin() = 0;
         virtual iterator end() = 0;
 
-        virtual const_iterator cbegin(uuid id) const = 0;
-        virtual const_iterator cend(uuid id) const = 0;
-        virtual iterator begin(uuid id) = 0;
-        virtual iterator end(uuid id) = 0;
+        virtual const_iterator cbegin(const uuid &id) const = 0;
+        virtual const_iterator cend(const uuid &id) const = 0;
+        virtual iterator begin(const uuid &id) = 0;
+        virtual iterator end(const uuid &id) = 0;
     };
 
     template <typename DATA_TYPE>
-    class AdjacencyList : public DataStructureBase<DATA_TYPE>
+    class AdjacencyList : public DataStructureBase<DATA_TYPE>, public std::enable_shared_from_this<AdjacencyList<DATA_TYPE>>
     {
+    public:
+        ~AdjacencyList() = default;
+
+    private:
         using VERTEX_TYPE = Vertex<DATA_TYPE>;
 
         using base_iterator_impl =
@@ -386,16 +428,19 @@ namespace sgl
         friend class BFS<AdjacencyList<DATA_TYPE>>;
         friend class DFS<AdjacencyList<DATA_TYPE>>;
         friend class Graph<DATA_TYPE, AdjacencyList>;
+        friend class VertexPrinter;
 
-    public:
+        std::map<uuid, std::pair<std::shared_ptr<VERTEX_TYPE>,
+                                 std::vector<std::shared_ptr<VERTEX_TYPE>>>>
+            m_vertices;
+
         AdjacencyList() = default;
-        ~AdjacencyList() = default;
 
-        uuid add_vertex(VERTEX_TYPE &&vertex) override
+        const uuid &add_vertex(VERTEX_TYPE &&vertex) override
         {
-            this->add_data_structure(vertex);
-            auto new_vertex = std::make_shared<VERTEX_TYPE>(std::move(vertex));
-            auto id = new_vertex->get_id();
+            auto new_vertex = std::make_shared<VERTEX_TYPE>(std::forward<VERTEX_TYPE>(vertex));
+            new_vertex->add_data_structure(this->shared_from_this());
+            const uuid &id = new_vertex->get_id();
             m_vertices.insert(std::make_pair(
                 id,
                 std::make_pair(std::move(new_vertex),
@@ -403,20 +448,37 @@ namespace sgl
             return id;
         }
 
-        uuid add_vertex(const DATA_TYPE &&data) override
+        const uuid &add_vertex(DATA_TYPE &&data) override
         {
-            VERTEX_TYPE vertex{std::move(data)};
+            VERTEX_TYPE vertex{std::forward<DATA_TYPE>(data)};
             return add_vertex(std::move(vertex));
         }
 
         void add_edge(const uuid &vertex1, const uuid &vertex2) override
         {
-            m_vertices[vertex1].second.push_back(m_vertices[vertex2].first);
-            m_vertices[vertex2].second.push_back(m_vertices[vertex1].first);
+            try
+            {
+                m_vertices.at(vertex1).second.push_back(m_vertices.at(vertex2).first);
+                m_vertices.at(vertex2).second.push_back(m_vertices.at(vertex1).first);
+            }
+            catch (const std::out_of_range &e)
+            {
+                throw std::out_of_range{"[void sgl::AdjacencyList::add_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " +
+                                        static_cast<std::string>(vertex1) +
+                                        " or " + static_cast<std::string>(vertex2) +
+                                        " not found"};
+            }
         }
 
         void remove_vertex(const uuid &vertex) override
         {
+            if (m_vertices.find(vertex) == m_vertices.end())
+            {
+                throw std::out_of_range{"[void sgl::AdjacencyList::remove_vertex(const uuid &vertex) override] Vertex with id " +
+                                        static_cast<std::string>(vertex) +
+                                        " not found"};
+            }
+
             auto &neighbors = m_vertices[vertex].second;
             for (auto &neighbor : neighbors)
             {
@@ -435,6 +497,20 @@ namespace sgl
 
         void remove_edge(const uuid &vertex1, const uuid &vertex2) override
         {
+            if (m_vertices.find(vertex1) == m_vertices.end())
+            {
+                throw std::out_of_range{"[void sgl::AdjacencyList::remove_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " +
+                                        static_cast<std::string>(vertex1) +
+                                        " not found"};
+            }
+
+            if (m_vertices.find(vertex2) == m_vertices.end())
+            {
+                throw std::out_of_range{"[void sgl::AdjacencyList::remove_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " +
+                                        static_cast<std::string>(vertex2) +
+                                        " not found"};
+            }
+
             auto &neighbors = m_vertices[vertex1].second;
             neighbors.erase(
                 std::remove_if(neighbors.begin(), neighbors.end(),
@@ -461,7 +537,7 @@ namespace sgl
                               bool, std::invoke_result_t<FUNCTION, const VERTEX_TYPE &,
                                                          ARGS...>>)
             {
-                throw std::invalid_argument("SGL: return type of function must be bool");
+                throw std::invalid_argument("[void sgl::AdjacencyList::remove_if(FUNCTION &&function, ARGS &&...args)] return type of function must be bool");
             }
             else
             {
@@ -521,7 +597,7 @@ namespace sgl
         void traverse(FUNCTION function, ARGS &&...args)
         {
             ALGORITHM<AdjacencyList<DATA_TYPE>> algorithm;
-            uuid id = m_vertices.begin()->first;
+            const uuid &id = m_vertices.begin()->first;
             algorithm.template traverse<policy>(*this, id, function,
                                                 std::forward<ARGS>(args)...);
         }
@@ -543,7 +619,7 @@ namespace sgl
         void traverse()
         {
             ALGORITHM<AdjacencyList<DATA_TYPE>> algorithm;
-            uuid id = m_vertices.begin()->first;
+            const uuid &id = m_vertices.begin()->first;
             algorithm.template traverse<policy>(*this, id,
                                                 [](const Vertex<DATA_TYPE> &vertex)
                                                 {
@@ -556,23 +632,16 @@ namespace sgl
             return list.print(os);
         }
 
-    private:
-        std::map<uuid, std::pair<std::shared_ptr<VERTEX_TYPE>,
-                                 std::vector<std::shared_ptr<VERTEX_TYPE>>>>
-            m_vertices;
-
-    public:
         base_const_iterator cbegin() const override { return base_const_iterator{std::make_shared<const_iterator<const_vertex_iterator>>(m_vertices.cbegin())}; }
         base_const_iterator cend() const override { return base_const_iterator{std::make_shared<const_iterator<const_vertex_iterator>>(m_vertices.cend())}; }
         base_iterator begin() override { return base_iterator{std::make_shared<iterator<vertex_iterator>>(m_vertices.begin())}; }
         base_iterator end() override { return base_iterator{std::make_shared<iterator<vertex_iterator>>(m_vertices.end())}; }
 
-        base_const_iterator cbegin(uuid id) const override { return base_const_iterator{std::make_shared<const_iterator<const_neighbor_iterator>>(m_vertices.at(id).second.cbegin())}; }
-        base_const_iterator cend(uuid id) const override { return base_const_iterator{std::make_shared<const_iterator<const_neighbor_iterator>>(m_vertices.at(id).second.cend())}; }
-        base_iterator begin(uuid id) override { return base_iterator{std::make_shared<iterator<neighbor_iterator>>(m_vertices.at(id).second.begin())}; }
-        base_iterator end(uuid id) override { return base_iterator{std::make_shared<iterator<neighbor_iterator>>(m_vertices.at(id).second.end())}; }
+        base_const_iterator cbegin(const uuid &id) const override { return base_const_iterator{std::make_shared<const_iterator<const_neighbor_iterator>>(m_vertices.at(id).second.cbegin())}; }
+        base_const_iterator cend(const uuid &id) const override { return base_const_iterator{std::make_shared<const_iterator<const_neighbor_iterator>>(m_vertices.at(id).second.cend())}; }
+        base_iterator begin(const uuid &id) override { return base_iterator{std::make_shared<iterator<neighbor_iterator>>(m_vertices.at(id).second.begin())}; }
+        base_iterator end(const uuid &id) override { return base_iterator{std::make_shared<iterator<neighbor_iterator>>(m_vertices.at(id).second.end())}; }
 
-    private:
         template <typename ITERATOR>
         class iterator : public base_iterator_impl
         {
@@ -657,8 +726,12 @@ namespace sgl
     };
 
     template <typename DATA_TYPE>
-    class AdjacencyMatrix : public DataStructureBase<DATA_TYPE>
+    class AdjacencyMatrix : public DataStructureBase<DATA_TYPE>, public std::enable_shared_from_this<AdjacencyMatrix<DATA_TYPE>>
     {
+    public:
+        ~AdjacencyMatrix() = default;
+
+    private:
         using VERTEX_TYPE = Vertex<DATA_TYPE>;
 
         using base_iterator_impl =
@@ -687,16 +760,19 @@ namespace sgl
         friend class BFS<AdjacencyMatrix<DATA_TYPE>>;
         friend class DFS<AdjacencyMatrix<DATA_TYPE>>;
         friend class Graph<DATA_TYPE, AdjacencyMatrix>;
+        friend class VertexPrinter;
 
-    public:
+        std::map<uuid, std::pair<std::shared_ptr<VERTEX_TYPE>,
+                                 std::map<uuid, bool>>>
+            m_vertices;
+
         AdjacencyMatrix() = default;
-        ~AdjacencyMatrix() = default;
 
-        uuid add_vertex(VERTEX_TYPE &&vertex) override
+        const uuid &add_vertex(VERTEX_TYPE &&vertex) override
         {
-            this->add_data_structure(vertex);
-            auto new_vertex = std::make_shared<VERTEX_TYPE>(std::move(vertex));
-            auto id = new_vertex->get_id();
+            auto new_vertex = std::make_shared<VERTEX_TYPE>(std::forward<VERTEX_TYPE>(vertex));
+            new_vertex->add_data_structure(this->shared_from_this());
+            const uuid &id = new_vertex->get_id();
 
             m_vertices.insert(std::make_pair(id, std::make_pair(new_vertex, std::map<uuid, bool>{})));
             for (auto &v : m_vertices)
@@ -708,20 +784,35 @@ namespace sgl
             return id;
         }
 
-        uuid add_vertex(const DATA_TYPE &&data) override
+        const uuid &add_vertex(DATA_TYPE &&data) override
         {
-            VERTEX_TYPE vertex{std::move(data)};
+            VERTEX_TYPE vertex{std::forward<DATA_TYPE>(data)};
             return add_vertex(std::move(vertex));
         }
 
         void add_edge(const uuid &vertex1, const uuid &vertex2) override
         {
-            m_vertices.at(vertex1).second.at(vertex2) = true;
-            m_vertices.at(vertex2).second.at(vertex1) = true;
+            try
+            {
+                m_vertices.at(vertex1).second.at(vertex2) = true;
+                m_vertices.at(vertex2).second.at(vertex1) = true;
+            }
+            catch (const std::out_of_range &e)
+            {
+                throw std::out_of_range{"[void sgl::AdjacencyMatrix::add_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " +
+                                        static_cast<std::string>(vertex1) +
+                                        " or " + static_cast<std::string>(vertex2) +
+                                        " not found"};
+            }
         }
 
         void remove_vertex(const uuid &vertex) override
         {
+            if (m_vertices.find(vertex) == m_vertices.end())
+            {
+                throw std::out_of_range{"[void sgl::AdjacencyMatrix::remove_vertex(const uuid &vertex) override] Vertex with id " + static_cast<std::string>(vertex) + " not found"};
+            }
+
             m_vertices.erase(vertex);
             for (auto &v : m_vertices)
             {
@@ -731,8 +822,18 @@ namespace sgl
 
         void remove_edge(const uuid &vertex1, const uuid &vertex2) override
         {
-            m_vertices.at(vertex1).second.at(vertex2) = false;
-            m_vertices.at(vertex2).second.at(vertex1) = false;
+            try
+            {
+                m_vertices.at(vertex1).second.erase(vertex2);
+                m_vertices.at(vertex2).second.erase(vertex1);
+            }
+            catch (const std::out_of_range &e)
+            {
+                throw std::out_of_range{"[void sgl::AdjacencyMatrix::remove_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " +
+                                        static_cast<std::string>(vertex1) +
+                                        " or " + static_cast<std::string>(vertex2) +
+                                        " not found"};
+            }
         }
 
         template <typename FUNCTION, typename... ARGS>
@@ -742,7 +843,7 @@ namespace sgl
                               bool, std::invoke_result_t<FUNCTION, const VERTEX_TYPE &,
                                                          ARGS...>>)
             {
-                throw std::invalid_argument("SGL: return type of function must be bool");
+                throw std::invalid_argument("[void sgl::AdjacencyMatrix::remove_if(FUNCTION &&function, ARGS &&...args)] return type of function must be bool");
             }
             else
             {
@@ -797,7 +898,7 @@ namespace sgl
         void traverse(FUNCTION function, ARGS &&...args)
         {
             ALGORITHM<AdjacencyMatrix<DATA_TYPE>> algorithm;
-            uuid id = m_vertices.begin()->first;
+            const uuid &id = m_vertices.begin()->first;
             algorithm.template traverse<policy>(*this, id, function,
                                                 std::forward<ARGS>(args)...);
         }
@@ -819,7 +920,7 @@ namespace sgl
         void traverse()
         {
             ALGORITHM<AdjacencyMatrix<DATA_TYPE>> algorithm;
-            uuid id = m_vertices.begin()->first;
+            const uuid &id = m_vertices.begin()->first;
             algorithm.template traverse<policy>(*this, id,
                                                 [](const Vertex<DATA_TYPE> &vertex)
                                                 {
@@ -832,18 +933,12 @@ namespace sgl
             return matrix.print(os);
         }
 
-    private:
-        std::map<uuid, std::pair<std::shared_ptr<VERTEX_TYPE>,
-                                 std::map<uuid, bool>>>
-            m_vertices;
-
-    public:
         base_const_iterator cbegin() const override { return base_const_iterator{std::make_shared<const_iterator<const_vertex_iterator>>(m_vertices.cbegin(), m_vertices)}; }
         base_const_iterator cend() const override { return base_const_iterator{std::make_shared<const_iterator<const_vertex_iterator>>(m_vertices.cend(), m_vertices)}; }
         base_iterator begin() override { return base_iterator{std::make_shared<iterator<vertex_iterator>>(m_vertices.begin(), m_vertices)}; }
         base_iterator end() override { return base_iterator{std::make_shared<iterator<vertex_iterator>>(m_vertices.end(), m_vertices)}; }
 
-        base_const_iterator cbegin(uuid id) const override
+        base_const_iterator cbegin(const uuid &id) const override
         {
             auto it = m_vertices.at(id).second.cbegin();
             while (it != m_vertices.at(id).second.cend() && !it->second)
@@ -852,8 +947,8 @@ namespace sgl
             }
             return base_const_iterator{std::make_shared<const_iterator<const_neighbor_iterator>>(it, m_vertices)};
         }
-        base_const_iterator cend(uuid id) const override { return base_const_iterator{std::make_shared<const_iterator<const_neighbor_iterator>>(m_vertices.at(id).second.cend(), m_vertices)}; }
-        base_iterator begin(uuid id) override
+        base_const_iterator cend(const uuid &id) const override { return base_const_iterator{std::make_shared<const_iterator<const_neighbor_iterator>>(m_vertices.at(id).second.cend(), m_vertices)}; }
+        base_iterator begin(const uuid &id) override
         {
             auto it = m_vertices.at(id).second.begin();
             while (it != m_vertices.at(id).second.end() && !it->second)
@@ -862,9 +957,8 @@ namespace sgl
             }
             return base_iterator{std::make_shared<iterator<neighbor_iterator>>(it, m_vertices)};
         }
-        base_iterator end(uuid id) override { return base_iterator{std::make_shared<iterator<neighbor_iterator>>(m_vertices.at(id).second.end(), m_vertices)}; }
+        base_iterator end(const uuid &id) override { return base_iterator{std::make_shared<iterator<neighbor_iterator>>(m_vertices.at(id).second.end(), m_vertices)}; }
 
-    private:
         template <typename ITERATOR>
         class iterator : public base_iterator_impl
         {
@@ -1006,53 +1100,61 @@ namespace sgl
         friend class VertexPrinter;
 
     public:
-        Graph() = default;
+        Graph()
+        {
+            DATA_STRUCTURE<DATA_TYPE> data_structure;
+            m_data_structure = std::make_shared<DATA_STRUCTURE<DATA_TYPE>>(data_structure);
+        }
         ~Graph() = default;
 
-        uuid add_vertex(const VERTEX_TYPE &&vertex)
+        const uuid &add_vertex(VERTEX_TYPE &&vertex)
         {
-            return m_data_structure.add_vertex(std::move(vertex));
+            return m_data_structure->add_vertex(std::forward<VERTEX_TYPE>(vertex));
         }
-        uuid add_vertex(VERTEX_TYPE vertex)
+        const uuid &add_vertex(VERTEX_TYPE &vertex)
         {
-            return m_data_structure.add_vertex(std::move(vertex));
+            return m_data_structure->add_vertex(std::move(vertex.get_data()));
         }
-        uuid add_vertex(const DATA_TYPE &&data)
+        const uuid &add_vertex(DATA_TYPE &&data)
         {
-            return m_data_structure.add_vertex(std::move(data));
+            return m_data_structure->add_vertex(std::forward<DATA_TYPE>(data));
         }
-        void add_edge(uuid vertex1_id, uuid vertex2_id)
+        const uuid &add_vertex(DATA_TYPE &data)
         {
-            m_data_structure.add_edge(vertex1_id, vertex2_id);
+            return m_data_structure->add_vertex(std::move(data));
         }
-        void remove_edge(uuid vertex1_id, uuid vertex2_id)
+        void add_edge(const uuid &vertex1_id, const uuid &vertex2_id)
         {
-            m_data_structure.remove_edge(vertex1_id, vertex2_id);
+            m_data_structure->add_edge(vertex1_id, vertex2_id);
         }
-        void remove_vertex(uuid vertex_id)
+        void remove_edge(const uuid &vertex1_id, const uuid &vertex2_id)
         {
-            m_data_structure.remove_vertex(vertex_id);
+            m_data_structure->remove_edge(vertex1_id, vertex2_id);
+        }
+        void remove_vertex(const uuid &vertex_id)
+        {
+            m_data_structure->remove_vertex(vertex_id);
         }
 
         template <typename FUNCTION, typename... ARGS>
         void remove_if(FUNCTION function, ARGS &&...args)
         {
-            m_data_structure.remove_if(function, std::forward<ARGS>(args)...);
+            m_data_structure->remove_if(function, std::forward<ARGS>(args)...);
         }
 
-        const VERTEX_TYPE &get_vertex(uuid id) const
+        const VERTEX_TYPE &get_vertex(const uuid &id) const
         {
-            return m_data_structure.get_vertex(id);
+            return m_data_structure->get_vertex(id);
         }
-        VERTEX_TYPE &get_vertex(uuid id) { return m_data_structure.get_vertex(id); }
+        VERTEX_TYPE &get_vertex(const uuid &id) { return m_data_structure->get_vertex(id); }
 
-        size_t size() const { return m_data_structure.size(); }
-        size_t size(uuid id) const { return m_data_structure.size(id); }
-        void empty() { m_data_structure.empty(); }
+        size_t size() const { return m_data_structure->size(); }
+        size_t size(const uuid &id) const { return m_data_structure->size(id); }
+        void empty() { m_data_structure->empty(); }
 
         std::ostream &print(std::ostream &os = std::cout) const
         {
-            return m_data_structure.print(os);
+            return m_data_structure->print(os);
         }
 
         template <template <typename> typename ALGORITHM = BFS,
@@ -1060,7 +1162,7 @@ namespace sgl
                   typename... ARGS>
         void traverse(const uuid &id, FUNCTION function, ARGS &&...args)
         {
-            m_data_structure.template traverse<ALGORITHM, policy>(
+            m_data_structure->template traverse<ALGORITHM, policy>(
                 function, id, std::forward<ARGS>(args)...);
         }
 
@@ -1069,7 +1171,7 @@ namespace sgl
                   typename... ARGS>
         void traverse(FUNCTION function, ARGS &&...args)
         {
-            m_data_structure.template traverse<ALGORITHM, policy>(
+            m_data_structure->template traverse<ALGORITHM, policy>(
                 function, std::forward<ARGS>(args)...);
         }
 
@@ -1077,14 +1179,14 @@ namespace sgl
                   VisitPolicy policy = VisitPolicy::RELATED>
         void traverse(const uuid &id)
         {
-            m_data_structure.template traverse<ALGORITHM, policy>(id);
+            m_data_structure->template traverse<ALGORITHM, policy>(id);
         }
 
         template <template <typename> typename ALGORITHM = BFS,
                   VisitPolicy policy = VisitPolicy::RELATED>
         void traverse()
         {
-            m_data_structure.template traverse<ALGORITHM, policy>();
+            m_data_structure->template traverse<ALGORITHM, policy>();
         }
 
         friend std::ostream &operator<<(std::ostream &os, const Graph &graph)
@@ -1093,18 +1195,19 @@ namespace sgl
         }
 
     private:
-        DATA_STRUCTURE<DATA_TYPE> m_data_structure;
+        // DATA_STRUCTURE<DATA_TYPE> m_data_structure;
+        std::shared_ptr<DATA_STRUCTURE<DATA_TYPE>> m_data_structure;
 
     public:
-        base_const_iterator cbegin() const { return m_data_structure.cbegin(); }
-        base_const_iterator cend() const { return m_data_structure.cend(); }
-        base_iterator begin() { return m_data_structure.begin(); }
-        base_iterator end() { return m_data_structure.end(); }
+        base_const_iterator cbegin() const { return m_data_structure->cbegin(); }
+        base_const_iterator cend() const { return m_data_structure->cend(); }
+        base_iterator begin() { return m_data_structure->begin(); }
+        base_iterator end() { return m_data_structure->end(); }
 
-        base_const_iterator begin(uuid id) const { return m_data_structure.cbegin(id); }
-        base_const_iterator end(uuid id) const { return m_data_structure.cend(id); }
-        base_iterator begin(uuid id) { return m_data_structure.begin(id); }
-        base_iterator end(uuid id) { return m_data_structure.end(id); }
+        base_const_iterator begin(const uuid &id) const { return m_data_structure->cbegin(id); }
+        base_const_iterator end(const uuid &id) const { return m_data_structure->cend(id); }
+        base_iterator begin(const uuid &id) { return m_data_structure->begin(id); }
+        base_iterator end(const uuid &id) { return m_data_structure->end(id); }
     };
 
     template <typename DATA_STRUCTURE>
@@ -1123,7 +1226,7 @@ namespace sgl
         {
             if (data_structure.size() == 0)
             {
-                throw std::out_of_range{"SGL: Graph is empty"};
+                throw std::out_of_range{"[void sgl::BFS::traverse(DATA_STRUCTURE &data_structure, const uuid &id, FUNCTION &&function, ARGS &&...args)] Graph is empty"};
             }
 
             std::queue<uuid> queue;
@@ -1131,13 +1234,13 @@ namespace sgl
 
             try
             {
-                VERTEX_TYPE start_vertex = data_structure.get_vertex(id);
+                VERTEX_TYPE &start_vertex = data_structure.get_vertex(id);
                 queue.push(start_vertex.get_id());
                 visited.insert(start_vertex.get_id());
             }
             catch (const std::out_of_range &e)
             {
-                throw std::out_of_range{"SGL: Vertex with id " +
+                throw std::out_of_range{"[void sgl::BFS::traverse(DATA_STRUCTURE &data_structure, const uuid &id, FUNCTION &&function, ARGS &&...args)] Vertex with id " +
                                         static_cast<std::string>(id) + " not found"};
             }
 
@@ -1191,7 +1294,7 @@ namespace sgl
         {
             if (data_structure.size() == 0)
             {
-                throw std::out_of_range{"SGL: Graph is empty"};
+                throw std::out_of_range{"[void sgl::DFS::traverse(DATA_STRUCTURE &data_structure, const uuid &id, FUNCTION &&function, ARGS &&...args)] Graph is empty"};
             }
 
             std::stack<uuid> stack;
@@ -1199,13 +1302,13 @@ namespace sgl
 
             try
             {
-                VERTEX_TYPE start_vertex = data_structure.get_vertex(id);
+                VERTEX_TYPE &start_vertex = data_structure.get_vertex(id);
                 stack.push(start_vertex.get_id());
                 visited.insert(start_vertex.get_id());
             }
             catch (const std::out_of_range &e)
             {
-                throw std::out_of_range{"SGL: Vertex with id " +
+                throw std::out_of_range{"[void sgl::DFS::traverse(DATA_STRUCTURE &data_structure, const uuid &id, FUNCTION &&function, ARGS &&...args)] Vertex with id " +
                                         static_cast<std::string>(id) + " not found"};
             }
 
@@ -1242,37 +1345,95 @@ namespace sgl
         }
     };
 
-    auto add = std::bind([](auto &vertex, auto &&a)
-                         { vertex.get_data() = vertex.get_data() + a; },
-                         std::placeholders::_1, std::placeholders::_2);
+    //
+    //       END OF TYPE DEFINITIONS
+    //
+    //////////////////////////////////////////////////////////////////////////////
 
-    auto increment = std::bind([](auto &vertex)
-                               { vertex.get_data() = vertex.get_data() + 1; },
-                               std::placeholders::_1);
+    //////////////////////////////////////////////////////////////////////////////
+    //
+    //       FUNCTORS
+    //
 
-    auto decrement = std::bind([](auto &vertex)
-                               { vertex.get_data() = vertex.get_data() - 1; },
-                               std::placeholders::_1);
+    namespace func
+    {
+        auto add = std::bind([](auto &vertex, auto &&a)
+                             { vertex.get_data() = vertex.get_data() + a; },
+                             std::placeholders::_1, std::placeholders::_2);
 
-    auto multiply = std::bind([](auto &vertex, auto &&a)
-                              { vertex.get_data() = vertex.get_data() * a; },
-                              std::placeholders::_1, std::placeholders::_2);
+        auto increment = std::bind([](auto &vertex)
+                                   { vertex.get_data() = vertex.get_data() + 1; },
+                                   std::placeholders::_1);
 
-    auto print = std::bind([](auto &vertex, const VertexFormat &format = VertexFormat::SHORTEST, std::ostream &os = std::cout)
-                           { os << format << vertex << std::endl; },
-                           std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+        auto decrement = std::bind([](auto &vertex)
+                                   { vertex.get_data() = vertex.get_data() - 1; },
+                                   std::placeholders::_1);
 
-    auto less_than = std::bind([](auto &vertex, auto &&a)
-                               { return vertex.get_data() < a; },
-                               std::placeholders::_1, std::placeholders::_2);
-
-    auto greater_than = std::bind([](auto &vertex, auto &&a)
-                                  { return vertex.get_data() > a; },
+        auto multiply = std::bind([](auto &vertex, auto &&a)
+                                  { vertex.get_data() = vertex.get_data() * a; },
                                   std::placeholders::_1, std::placeholders::_2);
 
-    auto equal_to = std::bind([](auto &vertex, auto &&a)
-                              { return vertex.get_data() == a; },
+        auto print = std::bind([](auto &vertex, const VertexFormat &format = VertexFormat::SHORTEST, std::ostream &os = std::cout)
+                               { os << format << vertex << std::endl; },
+                               std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+
+        auto less_than = std::bind([](auto &vertex, auto &&a)
+                                   { return vertex.get_data() < a; },
+                                   std::placeholders::_1, std::placeholders::_2);
+
+        auto greater_than = std::bind([](auto &vertex, auto &&a)
+                                      { return vertex.get_data() > a; },
+                                      std::placeholders::_1, std::placeholders::_2);
+
+        auto equal_to = std::bind([](auto &vertex, auto &&a)
+                                  { return vertex.get_data() == a; },
+                                  std::placeholders::_1, std::placeholders::_2);
+
+        auto not_equal_to = std::bind([](auto &vertex, auto &&a)
+                                      { return vertex.get_data() != a; },
+                                      std::placeholders::_1, std::placeholders::_2);
+
+        auto less_than_or_equal_to = std::bind([](auto &vertex, auto &&a)
+                                               { return vertex.get_data() <= a; },
+                                               std::placeholders::_1, std::placeholders::_2);
+
+        auto greater_than_or_equal_to = std::bind([](auto &vertex, auto &&a)
+                                                  { return vertex.get_data() >= a; },
+                                                  std::placeholders::_1, std::placeholders::_2);
+
+        auto and_ = std::bind([](auto &vertex, auto &&a)
+                              { return vertex.get_data() && a; },
                               std::placeholders::_1, std::placeholders::_2);
+
+        auto or_ = std::bind([](auto &vertex, auto &&a)
+                             { return vertex.get_data() || a; },
+                             std::placeholders::_1, std::placeholders::_2);
+
+        auto not_ = std::bind([](auto &vertex)
+                              { return !vertex.get_data(); },
+                              std::placeholders::_1);
+
+        auto nand_ = std::bind([](auto &vertex, auto &&a)
+                               { return !(vertex.get_data() && a); },
+                               std::placeholders::_1, std::placeholders::_2);
+
+        auto nor_ = std::bind([](auto &vertex, auto &&a)
+                              { return !(vertex.get_data() || a); },
+                              std::placeholders::_1, std::placeholders::_2);
+
+        auto xor_ = std::bind([](auto &vertex, auto &&a)
+                              { return vertex.get_data() ^ a; },
+                              std::placeholders::_1, std::placeholders::_2);
+
+        auto xnor_ = std::bind([](auto &vertex, auto &&a)
+                               { return !(vertex.get_data() ^ a); },
+                               std::placeholders::_1, std::placeholders::_2);
+    }
+
+    //
+    //       END OF FUNCTORS
+    //
+    //////////////////////////////////////////////////////////////////////////////
 
 } // namespace sgl
 
