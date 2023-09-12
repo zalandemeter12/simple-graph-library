@@ -115,5 +115,36 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
     graph2.print();
     std::cout << std::endl;
 
+    sgl::Graph<std::string, sgl::AdjacencyMatrix> graph3;
+
+    f = graph3.add_vertex("F");
+    b = graph3.add_vertex("B");
+    a = graph3.add_vertex("A");
+    d = graph3.add_vertex("D");
+    c = graph3.add_vertex("C");
+    e = graph3.add_vertex("E");
+    g = graph3.add_vertex("G");
+    i = graph3.add_vertex("I");
+    h = graph3.add_vertex("H");
+
+    graph3.add_edge(f, b, 0.5f);
+    graph3.add_edge(b, a, 1.4f);
+    graph3.add_edge(b, d, 2.2f);
+    graph3.add_edge(d, c, 3.1f);
+    graph3.add_edge(d, e, 4.3f);
+    graph3.add_edge(f, g, 5.2f);
+    graph3.add_edge(g, i, 6.1f);
+    graph3.add_edge(i, h, 7.3f);
+
+    std::cout << "graph3: " << std::endl
+              << sgl::VertexFormat::SHORT << graph3 << std::endl;
+
+    graph3.remove_edge(d, b);
+
+    std::cout << "graph3: " << std::endl
+              << sgl::VertexFormat::SHORT << graph3 << std::endl;
+
+    std::cout << graph3.size() << std::endl;
+
     return EXIT_SUCCESS;
 }
