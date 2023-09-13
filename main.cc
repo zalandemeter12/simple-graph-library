@@ -37,6 +37,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 
     sgl::Graph<std::string, sgl::AdjacencyMatrix> graph2;
 
+    std::cout << "graph1: " << std::endl
+              << sgl::VertexFormat::LONG << graph1 << std::endl;
+
     for (auto &v : graph1)
         graph2.add_vertex(v);
 
@@ -46,12 +49,12 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
     {
         for (auto &neighbor : vertex)
         {
-            std::cout << vertex.get_data() << " -> " << neighbor.get_data() << std::endl;
+            std::cout << vertex.data() << " -> " << neighbor.data() << std::endl;
             break;
         }
         for (auto it = graph1.begin(vertex.get_id()); it != graph1.end(vertex.get_id()); ++it)
         {
-            std::cout << it->get_data() << " <- " << vertex.get_data() << std::endl;
+            std::cout << it->data() << " <- " << vertex.data() << std::endl;
             break;
         }
     }
@@ -104,7 +107,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 
     std::cout << "graph1 BFS remove if with lambda: " << std::endl;
     graph1.remove_if([](auto &v)
-                     { return v.get_data() == "G"; });
+                     { return v.data() == "G"; });
     graph1.traverse<sgl::BFS>(b);
     std::cout << std::endl;
 
@@ -115,36 +118,45 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
     graph2.print();
     std::cout << std::endl;
 
-    sgl::Graph<std::string, sgl::AdjacencyMatrix> graph3;
+    {
+        sgl::Graph<std::string, sgl::AdjacencyList> graph3;
 
-    f = graph3.add_vertex("F");
-    b = graph3.add_vertex("B");
-    a = graph3.add_vertex("A");
-    d = graph3.add_vertex("D");
-    c = graph3.add_vertex("C");
-    e = graph3.add_vertex("E");
-    g = graph3.add_vertex("G");
-    i = graph3.add_vertex("I");
-    h = graph3.add_vertex("H");
+        auto f = graph3.add_vertex("F");
+        auto b = graph3.add_vertex("B");
+        auto a = graph3.add_vertex("A");
+        auto d = graph3.add_vertex("D");
+        auto c = graph3.add_vertex("C");
+        auto e = graph3.add_vertex("E");
+        auto g = graph3.add_vertex("G");
+        auto i = graph3.add_vertex("I");
+        auto h = graph3.add_vertex("H");
 
-    graph3.add_edge(f, b, 0.5f);
-    graph3.add_edge(b, a, 1.4f);
-    graph3.add_edge(b, d, 2.2f);
-    graph3.add_edge(d, c, 3.1f);
-    graph3.add_edge(d, e, 4.3f);
-    graph3.add_edge(f, g, 5.2f);
-    graph3.add_edge(g, i, 6.1f);
-    graph3.add_edge(i, h, 7.3f);
+        graph3.add_edge(f, b, 0.5f);
+        graph3.add_edge(b, a, 1.4f);
+        graph3.add_edge(b, d, 2.2f);
+        graph3.add_edge(d, c, 3.1f);
+        graph3.add_edge(d, e, 4.3f);
+        graph3.add_edge(f, g, 5.2f);
+        graph3.add_edge(g, i, 6.1f);
+        graph3.add_edge(i, h, 7.3f);
 
-    std::cout << "graph3: " << std::endl
-              << sgl::VertexFormat::SHORT << graph3 << std::endl;
+        std::cout << "graph3: " << std::endl
+                  << sgl::VertexFormat::SHORT << graph3 << std::endl;
 
-    graph3.remove_edge(d, b);
+        graph3.remove_edge(d, b);
 
-    std::cout << "graph3: " << std::endl
-              << sgl::VertexFormat::SHORT << graph3 << std::endl;
+        std::cout << "graph3: " << std::endl
+                  << sgl::VertexFormat::LONG << graph3 << std::endl;
 
-    std::cout << graph3.size() << std::endl;
+        std::cout << graph3.size() << std::endl;
+
+        graph3(f).data() = "X";
+        std::cout << graph3(f).data() << std::endl;
+
+        std::cout << graph3.get_weight(i, h) << std::endl;
+        graph3.set_weight(h, i, 1.0f);
+        std::cout << graph3.get_weight(h, i) << std::endl;
+    }
 
     return EXIT_SUCCESS;
 }
