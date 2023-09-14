@@ -140,8 +140,8 @@ namespace sgl
         const DATA_TYPE &data() const { return m_data; }
         DATA_TYPE &data() { return m_data; }
 
-        typename DataStructureBase<DATA_TYPE>::const_iterator cbegin() const { return m_data_structure->cbegin(m_uuid); }
-        typename DataStructureBase<DATA_TYPE>::const_iterator cend() const { return m_data_structure->cend(m_uuid); }
+        typename DataStructureBase<DATA_TYPE>::const_iterator begin() const { return m_data_structure->cbegin(m_uuid); }
+        typename DataStructureBase<DATA_TYPE>::const_iterator end() const { return m_data_structure->cend(m_uuid); }
         typename DataStructureBase<DATA_TYPE>::iterator begin() { return m_data_structure->begin(m_uuid); }
         typename DataStructureBase<DATA_TYPE>::iterator end() { return m_data_structure->end(m_uuid); }
 
@@ -219,15 +219,15 @@ namespace sgl
         {
             if (m_format == VertexFormat::SHORTEST)
             {
-                VertexPrinter{m_os, VertexFormat::SHORTEST} << *(graph.m_data_structure);
+                VertexPrinter{m_os, VertexFormat::SHORTEST} << *graph.m_data_structure;
             }
             else if (m_format == VertexFormat::SHORT)
             {
-                VertexPrinter{m_os, VertexFormat::SHORT} << *(graph.m_data_structure);
+                VertexPrinter{m_os, VertexFormat::SHORT} << *graph.m_data_structure;
             }
             else if (m_format == VertexFormat::LONG)
             {
-                VertexPrinter{m_os, VertexFormat::LONG} << *(graph.m_data_structure);
+                VertexPrinter{m_os, VertexFormat::LONG} << *graph.m_data_structure;
             }
 
             return m_os;
@@ -1162,6 +1162,7 @@ namespace sgl
               template <typename> typename DATA_STRUCTURE = AdjacencyList>
     class Graph
     {
+    public:
         using VERTEX_TYPE = Vertex<DATA_TYPE>;
 
         using base_const_iterator =
@@ -1171,7 +1172,6 @@ namespace sgl
 
         friend class VertexPrinter;
 
-    public:
         Graph()
         {
             DATA_STRUCTURE<DATA_TYPE> data_structure;
@@ -1270,15 +1270,15 @@ namespace sgl
 
         friend std::ostream &operator<<(std::ostream &os, const Graph &graph)
         {
-            return os << graph.m_data_structure;
+            return os << *graph.m_data_structure;
         }
 
     private:
         std::shared_ptr<DATA_STRUCTURE<DATA_TYPE>> m_data_structure;
 
     public:
-        base_const_iterator cbegin() const { return m_data_structure->cbegin(); }
-        base_const_iterator cend() const { return m_data_structure->cend(); }
+        base_const_iterator begin() const { return m_data_structure->cbegin(); }
+        base_const_iterator end() const { return m_data_structure->cend(); }
         base_iterator begin() { return m_data_structure->begin(); }
         base_iterator end() { return m_data_structure->end(); }
 
@@ -1420,6 +1420,58 @@ namespace sgl
             }
         }
     };
+
+    // implement dijkstra's algorithm with priority queue
+    // it is a function that takes a graph and a starting vertex
+    // it returns std::map<uuid, std::pair<float, std::vector<uuid>>>
+    // where the first element of the pair is the distance from the starting vertex
+    // and the second element of the pair is the path from the starting vertex
+
+    template <typename GRAPH>
+    std::map<uuid, std::pair<float, std::vector<uuid>>> dijkstra(const GRAPH &graph, const uuid &id)
+    {
+        std::map<uuid, std::pair<float, std::vector<uuid>>> output;
+
+        using VERTEX_TYPE = typename GRAPH::VERTEX_TYPE;
+
+        const VERTEX_TYPE &start_vertex = graph.vertex(id);
+
+        std::cout << graph << std::endl;
+        std::cout << "Dijkstra's algorithm starting from vertex: " << start_vertex << std::endl;
+
+        std::priority_queue<std::pair<float, uuid>, std::vector<std::pair<float, uuid>>, std::greater<std::pair<float, uuid>>> queue;
+
+        for (auto &vertex : graph)
+        {
+            output[vertex.get_id()] = std::make_pair(std::numeric_limits<float>::infinity(), std::vector<uuid>{});
+        }
+
+        queue.push(std::make_pair(0, start_vertex.get_id()));
+        output[start_vertex.get_id()].first = 0;
+
+        while (!queue.empty())
+        {
+            auto [distance, vertex_id] = queue.top();
+            queue.pop();
+
+            for (auto &neighbor : graph(vertex_id))
+            {
+                std::cout << "Neighbor: " << neighbor << std::endl;
+            }
+        }
+
+        for (auto &[vertex_id, pair] : output)
+        {
+            std::cout << "Vertex: " << graph.vertex(vertex_id) << " Distance: " << pair.first << " Path: ";
+            for (const auto &id : pair.second)
+            {
+                std::cout << graph.vertex(id) << " ";
+            }
+            std::cout << std::endl;
+        }
+
+        return output;
+    }
 
     //
     //       END OF TYPE DEFINITIONS

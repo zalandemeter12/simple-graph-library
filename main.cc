@@ -146,7 +146,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
         graph3.remove_edge(d, b);
 
         std::cout << "graph3: " << std::endl
-                  << sgl::VertexFormat::LONG << graph3 << std::endl;
+                  << graph3 << std::endl;
 
         std::cout << graph3.size() << std::endl;
 
@@ -156,6 +156,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
         std::cout << graph3.get_weight(i, h) << std::endl;
         graph3.set_weight(h, i, 1.0f);
         std::cout << graph3.get_weight(h, i) << std::endl;
+
+        auto map = dijkstra(graph3, b);
     }
 
     return EXIT_SUCCESS;
