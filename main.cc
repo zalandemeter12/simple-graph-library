@@ -1,5 +1,10 @@
 #include "SGL/sgl.hxx"
 
+#include <chrono>
+#include <numbers>
+
+#define PI std::numbers::pi_v<float>
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
     /*
@@ -118,47 +123,49 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
     graph2.print();
     std::cout << std::endl;
 
+    //////////////////////////////////////////////////////////////////////////////
+    //
+    //       RUNTIME TEST
+    //
+
+    [[maybe_unused]] int vertices_count = 100;
+    [[maybe_unused]] int edges_count = 500;
+
+    sgl::Graph<std::string, sgl::AdjacencyList> graph_dijkstra2;
+
+    std::vector<sgl::uuid> vertices;
+
+    for (int i = 0; i < vertices_count; ++i)
+        vertices.push_back(graph_dijkstra2.add_vertex(std::to_string(i)));
+
+    int created_edges = 0;
+    do
     {
-        sgl::Graph<std::string, sgl::AdjacencyList> graph3;
+        int v1 = rand() % vertices_count;
+        int v2 = rand() % vertices_count;
+        int weight = rand() % 100;
+        try
+        {
+            graph_dijkstra2.add_edge(vertices[v1], vertices[v2], weight);
+            ++created_edges;
+        }
+        catch (const std::exception &e)
+        {
+            continue;
+        }
+    } while (created_edges < edges_count);
 
-        auto f = graph3.add_vertex("F");
-        auto b = graph3.add_vertex("B");
-        auto a = graph3.add_vertex("A");
-        auto d = graph3.add_vertex("D");
-        auto c = graph3.add_vertex("C");
-        auto e = graph3.add_vertex("E");
-        auto g = graph3.add_vertex("G");
-        auto i = graph3.add_vertex("I");
-        auto h = graph3.add_vertex("H");
+    auto start1 = std::chrono::high_resolution_clock::now();
+    auto map = dijkstra(graph_dijkstra2, vertices[0]);
+    auto end1 = std::chrono::high_resolution_clock::now();
 
-        graph3.add_edge(f, b, 0.5f);
-        graph3.add_edge(b, a, 1.4f);
-        graph3.add_edge(b, d, 2.2f);
-        graph3.add_edge(d, c, 3.1f);
-        graph3.add_edge(d, e, 4.3f);
-        graph3.add_edge(f, g, 5.2f);
-        graph3.add_edge(g, i, 6.1f);
-        graph3.add_edge(i, h, 7.3f);
+    std::cout << "time taken: " << std::chrono::duration_cast<std::chrono::milliseconds>(end1 - start1).count() << "ms" << std::endl;
+    std::cout << "shortest distance to the 50th vertex: " << map[vertices[50]].first << std::endl;
 
-        std::cout << "graph3: " << std::endl
-                  << sgl::VertexFormat::SHORT << graph3 << std::endl;
-
-        graph3.remove_edge(d, b);
-
-        std::cout << "graph3: " << std::endl
-                  << graph3 << std::endl;
-
-        std::cout << graph3.size() << std::endl;
-
-        graph3(f).data() = "X";
-        std::cout << graph3(f).data() << std::endl;
-
-        std::cout << graph3.get_weight(i, h) << std::endl;
-        graph3.set_weight(h, i, 1.0f);
-        std::cout << graph3.get_weight(h, i) << std::endl;
-
-        auto map = dijkstra(graph3, b);
-    }
+    //
+    //       END OF RUNTIME TEST
+    //
+    //////////////////////////////////////////////////////////////////////////////
 
     return EXIT_SUCCESS;
 }

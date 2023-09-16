@@ -60,7 +60,7 @@ namespace sgl
         std::cout << R"(
 │ ╔═╗╔═╗╦      Simple Graph Library │
 │ ╚═╗║ ╦║        Apache License 2.0 │
-│ ╚═╝╚═╝╩═╝           version 0.3.0 │
+│ ╚═╝╚═╝╩═╝           version 0.3.1 │
     )" << std::endl;
     }
 
@@ -83,7 +83,7 @@ namespace sgl
         uuid()
         {
             static std::random_device rd;
-            static std::mt19937_64 gen(rd());
+            static std::mt19937_64 gen(1);
             static std::uniform_int_distribution<> dis(0, 15);
 
             std::stringstream ss;
@@ -202,13 +202,25 @@ namespace sgl
                 m_os << "[ id: {" << id.substr(0, 2) << "..."
                      << id.substr(id.size() - 2, 2) << "}, ";
                 m_os << "data: {" << vertex.m_data;
-                m_os << "}, neighbors: {" << vertex.size() << "} ]";
+                m_os << "}, num adj: {" << vertex.size() << "} ]";
             }
             else if (m_format == VertexFormat::LONG)
             {
                 m_os << "[ id: {" << vertex.m_uuid << "}, ";
                 m_os << "data: {" << vertex.m_data;
-                m_os << "}, neighbors: {" << vertex.size() << "} ]";
+                m_os << "}, neighbors: {";
+                for (auto it = vertex.begin(); it != vertex.end(); ++it)
+                {
+                    if (it == --vertex.end())
+                    {
+                        m_os << *it;
+                    }
+                    else
+                    {
+                        m_os << *it << ", ";
+                    }
+                }
+                m_os << "} ]";
             }
 
             return m_os;
@@ -240,15 +252,19 @@ namespace sgl
             {
                 if (m_format == VertexFormat::SHORTEST)
                 {
-                    VertexPrinter{m_os, VertexFormat::SHORTEST} << *it << std::endl;
+                    VertexPrinter{m_os, VertexFormat::SHORTEST} << *it;
                 }
                 else if (m_format == VertexFormat::SHORT)
                 {
-                    VertexPrinter{m_os, VertexFormat::SHORT} << *it << std::endl;
+                    VertexPrinter{m_os, VertexFormat::SHORT} << *it;
                 }
                 else if (m_format == VertexFormat::LONG)
                 {
-                    VertexPrinter{m_os, VertexFormat::LONG} << *it << std::endl;
+                    VertexPrinter{m_os, VertexFormat::LONG} << *it;
+                }
+                if (it != --adjacency_list.cend())
+                {
+                    m_os << std::endl;
                 }
             }
             return m_os;
@@ -261,15 +277,19 @@ namespace sgl
             {
                 if (m_format == VertexFormat::SHORTEST)
                 {
-                    VertexPrinter{m_os, VertexFormat::SHORTEST} << *it << std::endl;
+                    VertexPrinter{m_os, VertexFormat::SHORTEST} << *it;
                 }
                 else if (m_format == VertexFormat::SHORT)
                 {
-                    VertexPrinter{m_os, VertexFormat::SHORT} << *it << std::endl;
+                    VertexPrinter{m_os, VertexFormat::SHORT} << *it;
                 }
                 else if (m_format == VertexFormat::LONG)
                 {
-                    VertexPrinter{m_os, VertexFormat::LONG} << *it << std::endl;
+                    VertexPrinter{m_os, VertexFormat::LONG} << *it;
+                }
+                if (it != --adjacency_matrix.cend())
+                {
+                    m_os << std::endl;
                 }
             }
             return m_os;
@@ -323,6 +343,7 @@ namespace sgl
             virtual bool operator==(const const_iterator_impl *other) const = 0;
             virtual bool operator!=(const const_iterator_impl *other) const = 0;
             virtual const_iterator_impl *operator++() = 0;
+            virtual const_iterator_impl *operator--() = 0;
             virtual const VERTEX_TYPE &operator*() const = 0;
             virtual const VERTEX_TYPE *operator->() const = 0;
         };
@@ -336,6 +357,7 @@ namespace sgl
             virtual bool operator==(const iterator_impl *other) const = 0;
             virtual bool operator!=(const iterator_impl *other) const = 0;
             virtual iterator_impl *operator++() = 0;
+            virtual iterator_impl *operator--() = 0;
             virtual VERTEX_TYPE &operator*() const = 0;
             virtual VERTEX_TYPE *operator->() const = 0;
         };
@@ -352,6 +374,11 @@ namespace sgl
             const_iterator &operator++()
             {
                 ++(*m_ptr);
+                return *this;
+            }
+            const_iterator &operator--()
+            {
+                --(*m_ptr);
                 return *this;
             }
             const VERTEX_TYPE &operator*() const { return **m_ptr; }
@@ -372,6 +399,11 @@ namespace sgl
             iterator &operator++()
             {
                 ++(*m_ptr);
+                return *this;
+            }
+            iterator &operator--()
+            {
+                --(*m_ptr);
                 return *this;
             }
             VERTEX_TYPE &operator*() const { return **m_ptr; }
@@ -453,6 +485,20 @@ namespace sgl
 
         void add_edge(const uuid &vertex1, const uuid &vertex2, const float weight = 0) override
         {
+            if (vertex1 == vertex2)
+            {
+                throw std::invalid_argument("[void sgl::AdjacencyList::add_edge(const uuid &vertex1, const uuid &vertex2, const float weight = 0)] vertex1 and vertex2 must be different");
+            }
+
+            // check if edge already exists
+            for (auto &neighbor : m_vertices.at(vertex1).second)
+            {
+                if (neighbor.first == vertex2)
+                {
+                    throw std::invalid_argument("[void sgl::AdjacencyList::add_edge(const uuid &vertex1, const uuid &vertex2, const float weight = 0)] Edge between vertex with id " + static_cast<std::string>(vertex1) + " and vertex with id " + static_cast<std::string>(vertex2) + " already exists");
+                }
+            }
+
             try
             {
                 m_vertices.at(vertex1).second.push_back(std::pair{vertex2, weight});
@@ -489,6 +535,11 @@ namespace sgl
 
         void remove_edge(const uuid &vertex1, const uuid &vertex2) override
         {
+            if (vertex1 == vertex2)
+            {
+                throw std::invalid_argument("[void sgl::AdjacencyList::remove_edge(const uuid &vertex1, const uuid &vertex2)] vertex1 and vertex2 must be different");
+            }
+
             if (m_vertices.find(vertex1) == m_vertices.end())
             {
                 throw std::out_of_range{"[void sgl::AdjacencyList::remove_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " + static_cast<std::string>(vertex1) + " not found"};
@@ -555,14 +606,19 @@ namespace sgl
 
         const float &weight(const uuid &vertex1, const uuid &vertex2) const override
         {
+            if (vertex1 == vertex2)
+            {
+                throw std::invalid_argument("[const float& sgl::AdjacencyList::weight(const uuid &vertex1, const uuid &vertex2) const] vertex1 and vertex2 must be different");
+            }
+
             if (m_vertices.find(vertex1) == m_vertices.end())
             {
-                throw std::out_of_range{"[void sgl::AdjacencyList::remove_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " + static_cast<std::string>(vertex1) + " not found"};
+                throw std::out_of_range{"[const float& sgl::AdjacencyList::weight(const uuid &vertex1, const uuid &vertex2) const] Vertex with id " + static_cast<std::string>(vertex1) + " not found"};
             }
 
             if (m_vertices.find(vertex2) == m_vertices.end())
             {
-                throw std::out_of_range{"[void sgl::AdjacencyList::remove_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " + static_cast<std::string>(vertex2) + " not found"};
+                throw std::out_of_range{"[const float& sgl::AdjacencyList::weight(const uuid &vertex1, const uuid &vertex2) const] Vertex with id " + static_cast<std::string>(vertex2) + " not found"};
             }
 
             for (auto &neighbor : m_vertices.at(vertex1).second)
@@ -573,19 +629,24 @@ namespace sgl
                 }
             }
 
-            throw std::out_of_range{"[void sgl::AdjacencyList::remove_edge(const uuid &vertex1, const uuid &vertex2)] Edge between vertex with id " + static_cast<std::string>(vertex1) + " and vertex with id " + static_cast<std::string>(vertex2) + " not found"};
+            throw std::out_of_range{"[const float& sgl::AdjacencyList::weight(const uuid &vertex1, const uuid &vertex2) const] Edge between vertex with id " + static_cast<std::string>(vertex1) + " and vertex with id " + static_cast<std::string>(vertex2) + " not found"};
         }
 
         float &weight(const uuid &vertex1, const uuid &vertex2) override
         {
+            if (vertex1 == vertex2)
+            {
+                throw std::invalid_argument("[float& sgl::AdjacencyList::weight(const uuid &vertex1, const uuid &vertex2)] vertex1 and vertex2 must be different");
+            }
+
             if (m_vertices.find(vertex1) == m_vertices.end())
             {
-                throw std::out_of_range{"[void sgl::AdjacencyList::remove_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " + static_cast<std::string>(vertex1) + " not found"};
+                throw std::out_of_range{"[float& sgl::AdjacencyList::weight(const uuid &vertex1, const uuid &vertex2)] Vertex with id " + static_cast<std::string>(vertex1) + " not found"};
             }
 
             if (m_vertices.find(vertex2) == m_vertices.end())
             {
-                throw std::out_of_range{"[void sgl::AdjacencyList::remove_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " + static_cast<std::string>(vertex2) + " not found"};
+                throw std::out_of_range{"[float& sgl::AdjacencyList::weight(const uuid &vertex1, const uuid &vertex2)] Vertex with id " + static_cast<std::string>(vertex2) + " not found"};
             }
 
             for (auto &neighbor : m_vertices.at(vertex1).second)
@@ -596,7 +657,7 @@ namespace sgl
                 }
             }
 
-            throw std::out_of_range{"[void sgl::AdjacencyList::remove_edge(const uuid &vertex1, const uuid &vertex2)] Edge between vertex with id " + static_cast<std::string>(vertex1) + " and vertex with id " + static_cast<std::string>(vertex2) + " not found"};
+            throw std::out_of_range{"[float& sgl::AdjacencyList::weight(const uuid &vertex1, const uuid &vertex2)] Edge between vertex with id " + static_cast<std::string>(vertex1) + " and vertex with id " + static_cast<std::string>(vertex2) + " not found"};
         }
 
         size_t size() const override { return m_vertices.size(); }
@@ -690,7 +751,11 @@ namespace sgl
                 ++m_it;
                 return this;
             }
-
+            base_iterator_impl *operator--() override
+            {
+                --m_it;
+                return this;
+            }
             VERTEX_TYPE &operator*() const override
             {
                 if constexpr (std::is_same_v<ITERATOR, vertex_iterator>)
@@ -734,7 +799,11 @@ namespace sgl
                 ++m_it;
                 return this;
             }
-
+            base_const_iterator_impl *operator--() override
+            {
+                --m_it;
+                return this;
+            }
             const VERTEX_TYPE &operator*() const override
             {
                 if constexpr (std::is_same_v<ITERATOR, const_vertex_iterator>)
@@ -830,6 +899,17 @@ namespace sgl
 
         void add_edge(const uuid &vertex1, const uuid &vertex2, const float weight = 0) override
         {
+            if (vertex1 == vertex2)
+            {
+                throw std::invalid_argument{"[void sgl::AdjacencyMatrix::add_edge(const uuid &vertex1, const uuid &vertex2, const float weight = 0)] vertex1 and vertex2 must be different"};
+            }
+
+            // check if edge already exists
+            if (!std::isnan(m_vertices.at(vertex1).second.at(vertex2)))
+            {
+                throw std::invalid_argument{"[void sgl::AdjacencyMatrix::add_edge(const uuid &vertex1, const uuid &vertex2, const float weight = 0)] Edge between vertex with id " + static_cast<std::string>(vertex1) + " and vertex with id " + static_cast<std::string>(vertex2) + " already exists"};
+            }
+
             try
             {
                 m_vertices.at(vertex1).second.at(vertex2) = weight;
@@ -857,6 +937,11 @@ namespace sgl
 
         void remove_edge(const uuid &vertex1, const uuid &vertex2) override
         {
+            if (vertex1 == vertex2)
+            {
+                throw std::invalid_argument("[void sgl::AdjacencyMatrix::remove_edge(const uuid &vertex1, const uuid &vertex2)] vertex1 and vertex2 must be different");
+            }
+
             try
             {
                 m_vertices.at(vertex1).second.at(vertex2) = std::nanf("Not adjacent");
@@ -899,19 +984,24 @@ namespace sgl
 
         const float &weight(const uuid &vertex1, const uuid &vertex2) const override
         {
+            if (vertex1 == vertex2)
+            {
+                throw std::invalid_argument("[const float &sgl::AdjacencyMatrix::weight(const uuid &vertex1, const uuid &vertex2) const] vertex1 and vertex2 must be different");
+            }
+
             if (m_vertices.find(vertex1) == m_vertices.end())
             {
-                throw std::out_of_range{"[void sgl::AdjacencyMatrix::remove_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " + static_cast<std::string>(vertex1) + " not found"};
+                throw std::out_of_range{"[const float &sgl::AdjacencyMatrix::weight(const uuid &vertex1, const uuid &vertex2) const] Vertex with id " + static_cast<std::string>(vertex1) + " not found"};
             }
 
             if (m_vertices.find(vertex2) == m_vertices.end())
             {
-                throw std::out_of_range{"[void sgl::AdjacencyMatrix::remove_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " + static_cast<std::string>(vertex2) + " not found"};
+                throw std::out_of_range{"[const float &sgl::AdjacencyMatrix::weight(const uuid &vertex1, const uuid &vertex2) const] Vertex with id " + static_cast<std::string>(vertex2) + " not found"};
             }
 
             if (std::isnan(m_vertices.at(vertex1).second.at(vertex2)))
             {
-                throw std::out_of_range{"[void sgl::AdjacencyMatrix::remove_edge(const uuid &vertex1, const uuid &vertex2)] Edge between vertex with id " + static_cast<std::string>(vertex1) + " and vertex with id " + static_cast<std::string>(vertex2) + " not found"};
+                throw std::out_of_range{"[const float &sgl::AdjacencyMatrix::weight(const uuid &vertex1, const uuid &vertex2) const] Edge between vertex with id " + static_cast<std::string>(vertex1) + " and vertex with id " + static_cast<std::string>(vertex2) + " not found"};
             }
 
             return m_vertices.at(vertex1).second.at(vertex2);
@@ -919,19 +1009,24 @@ namespace sgl
 
         float &weight(const uuid &vertex1, const uuid &vertex2) override
         {
+            if (vertex1 == vertex2)
+            {
+                throw std::invalid_argument("[float &sgl::AdjacencyMatrix::weight(const uuid &vertex1, const uuid &vertex2)] vertex1 and vertex2 must be different");
+            }
+
             if (m_vertices.find(vertex1) == m_vertices.end())
             {
-                throw std::out_of_range{"[void sgl::AdjacencyMatrix::remove_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " + static_cast<std::string>(vertex1) + " not found"};
+                throw std::out_of_range{"[float &sgl::AdjacencyMatrix::weight(const uuid &vertex1, const uuid &vertex2)] Vertex with id " + static_cast<std::string>(vertex1) + " not found"};
             }
 
             if (m_vertices.find(vertex2) == m_vertices.end())
             {
-                throw std::out_of_range{"[void sgl::AdjacencyMatrix::remove_edge(const uuid &vertex1, const uuid &vertex2)] Vertex with id " + static_cast<std::string>(vertex2) + " not found"};
+                throw std::out_of_range{"[float &sgl::AdjacencyMatrix::weight(const uuid &vertex1, const uuid &vertex2)] Vertex with id " + static_cast<std::string>(vertex2) + " not found"};
             }
 
             if (std::isnan(m_vertices.at(vertex1).second.at(vertex2)))
             {
-                throw std::out_of_range{"[void sgl::AdjacencyMatrix::remove_edge(const uuid &vertex1, const uuid &vertex2)] Edge between vertex with id " + static_cast<std::string>(vertex1) + " and vertex with id " + static_cast<std::string>(vertex2) + " not found"};
+                throw std::out_of_range{"[float &sgl::AdjacencyMatrix::weight(const uuid &vertex1, const uuid &vertex2)] Edge between vertex with id " + static_cast<std::string>(vertex1) + " and vertex with id " + static_cast<std::string>(vertex2) + " not found"};
             }
 
             return m_vertices.at(vertex1).second.at(vertex2);
@@ -1013,7 +1108,7 @@ namespace sgl
         base_const_iterator cbegin(const uuid &id) const override
         {
             auto it = m_vertices.at(id).second.cbegin();
-            while (it != m_vertices.at(id).second.cend() && !it->second)
+            while (it != m_vertices.at(id).second.cend() && std::isnan(it->second))
             {
                 ++it;
             }
@@ -1023,7 +1118,7 @@ namespace sgl
         base_iterator begin(const uuid &id) override
         {
             auto it = m_vertices.at(id).second.begin();
-            while (it != m_vertices.at(id).second.end() && !it->second)
+            while (it != m_vertices.at(id).second.end() && std::isnan(it->second))
             {
                 ++it;
             }
@@ -1049,19 +1144,29 @@ namespace sgl
                 }
                 else if constexpr (std::is_same_v<ITERATOR, neighbor_iterator>)
                 {
-                    if (m_it->first == m_vertices.rbegin()->first)
+                    ++m_it;
+                    while (std::isnan(m_it->second))
                     {
                         ++m_it;
-                        return this;
                     }
-                    else
+                    return this;
+                }
+            }
+            base_iterator_impl *operator--() override
+            {
+                if constexpr (std::is_same_v<ITERATOR, vertex_iterator>)
+                {
+                    --m_it;
+                    return this;
+                }
+                else if constexpr (std::is_same_v<ITERATOR, neighbor_iterator>)
+                {
+                    --m_it;
+                    while (std::isnan(m_it->second))
                     {
-                        do
-                        {
-                            ++m_it;
-                        } while (std::isnan(m_it->second));
-                        return this;
+                        --m_it;
                     }
+                    return this;
                 }
             }
             VERTEX_TYPE &operator*() const override
@@ -1112,19 +1217,29 @@ namespace sgl
                 }
                 else if constexpr (std::is_same_v<ITERATOR, const_neighbor_iterator>)
                 {
-                    if (m_it->first == m_vertices.rbegin()->first)
+                    ++m_it;
+                    while (std::isnan(m_it->second))
                     {
                         ++m_it;
-                        return this;
                     }
-                    else
+                    return this;
+                }
+            }
+            base_const_iterator_impl *operator--() override
+            {
+                if constexpr (std::is_same_v<ITERATOR, const_vertex_iterator>)
+                {
+                    --m_it;
+                    return this;
+                }
+                else if constexpr (std::is_same_v<ITERATOR, const_neighbor_iterator>)
+                {
+                    --m_it;
+                    while (std::isnan(m_it->second))
                     {
-                        do
-                        {
-                            ++m_it;
-                        } while (std::isnan(m_it->second));
-                        return this;
+                        --m_it;
                     }
+                    return this;
                 }
             }
             const VERTEX_TYPE &operator*() const override
@@ -1421,33 +1536,26 @@ namespace sgl
         }
     };
 
-    // implement dijkstra's algorithm with priority queue
-    // it is a function that takes a graph and a starting vertex
-    // it returns std::map<uuid, std::pair<float, std::vector<uuid>>>
-    // where the first element of the pair is the distance from the starting vertex
-    // and the second element of the pair is the path from the starting vertex
-
     template <typename GRAPH>
     std::map<uuid, std::pair<float, std::vector<uuid>>> dijkstra(const GRAPH &graph, const uuid &id)
     {
         std::map<uuid, std::pair<float, std::vector<uuid>>> output;
-
-        using VERTEX_TYPE = typename GRAPH::VERTEX_TYPE;
-
-        const VERTEX_TYPE &start_vertex = graph.vertex(id);
-
-        std::cout << graph << std::endl;
-        std::cout << "Dijkstra's algorithm starting from vertex: " << start_vertex << std::endl;
-
         std::priority_queue<std::pair<float, uuid>, std::vector<std::pair<float, uuid>>, std::greater<std::pair<float, uuid>>> queue;
+        const auto &start_vertex = graph.vertex(id);
 
         for (auto &vertex : graph)
         {
-            output[vertex.get_id()] = std::make_pair(std::numeric_limits<float>::infinity(), std::vector<uuid>{});
+            if (vertex.get_id() == start_vertex.get_id())
+            {
+                output[vertex.get_id()] = std::make_pair(0, std::vector<uuid>{});
+            }
+            else
+            {
+                output[vertex.get_id()] = std::make_pair(std::numeric_limits<float>::infinity(), std::vector<uuid>{});
+            }
         }
 
         queue.push(std::make_pair(0, start_vertex.get_id()));
-        output[start_vertex.get_id()].first = 0;
 
         while (!queue.empty())
         {
@@ -1456,21 +1564,37 @@ namespace sgl
 
             for (auto &neighbor : graph(vertex_id))
             {
-                std::cout << "Neighbor: " << neighbor << std::endl;
+                float weight = graph.get_weight(vertex_id, neighbor.get_id());
+
+                if (output[neighbor.get_id()].first > distance + weight)
+                {
+                    output[neighbor.get_id()].first = distance + weight;
+                    output[neighbor.get_id()].second = output[vertex_id].second;
+                    output[neighbor.get_id()].second.push_back(vertex_id);
+                    queue.push(std::make_pair(output[neighbor.get_id()].first, neighbor.get_id()));
+                }
             }
         }
 
+        // insert starting to the back of vector the uuid of the specified vertex
         for (auto &[vertex_id, pair] : output)
         {
-            std::cout << "Vertex: " << graph.vertex(vertex_id) << " Distance: " << pair.first << " Path: ";
-            for (const auto &id : pair.second)
-            {
-                std::cout << graph.vertex(id) << " ";
-            }
-            std::cout << std::endl;
+            pair.second.push_back(vertex_id);
         }
 
         return output;
+    }
+
+    template <typename GRAPH>
+    void print_dijkstra(const GRAPH &graph, const std::map<uuid, std::pair<float, std::vector<uuid>>> &map)
+    {
+        for (auto &v : map)
+        {
+            std::cout << graph(v.first) << "\t" << v.second.first << "\t\t";
+            for (auto &u : v.second.second)
+                std::cout << graph(u) << " ";
+            std::cout << std::endl;
+        }
     }
 
     //
