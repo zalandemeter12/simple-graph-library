@@ -6,11 +6,11 @@ enable_testing()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_BUILD_TYPE Release)
+# set(CMAKE_BUILD_TYPE Release)
 add_compile_options(-Wall -Wextra -pedantic -Werror)
 
 
-add_library(sgl SGL/sgl.hxx)
+add_library(sgl sgl.hxx)
 set_target_properties(sgl PROPERTIES LINKER_LANGUAGE CXX)
 
 add_executable(example main.cc)

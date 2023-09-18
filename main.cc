@@ -1,4 +1,4 @@
-#include "SGL/sgl.hxx"
+#include "sgl.hxx"
 
 #include <chrono>
 #include <numbers>
