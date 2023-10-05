@@ -1,9 +1,6 @@
 #include "sgl.hxx"
 
 #include <chrono>
-#include <numbers>
-
-#define PI std::numbers::pi_v<float>
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
